@@ -24,6 +24,7 @@ contract PolkaWar is Ownable, ReentrancyGuard {
         uint256 tokenAmount; // token amount needed to enter each pool
         address[] player;
         address winner;
+        bool drawStatus;
     }
 
     GamePool[] public pools;
@@ -46,7 +47,8 @@ contract PolkaWar is Ownable, ReentrancyGuard {
                 state : GameState.Opening,
                 tokenAmount : _tokenAmount,
                 player : new address[](0),
-                winner : address(0)
+                winner : address(0),
+                drawStatus: false
             })
         );
     }
@@ -87,15 +89,22 @@ contract PolkaWar is Ownable, ReentrancyGuard {
         return pools[pid - 1].player;        
     }
 
-    // set winner
-    function updateGameStatus(uint256 _pid, address _winnerAddress) external onlyOwner {
+    // update game status
+    function updateGameStatus(uint256 _pid, address _winnerAddress, bool drawStatus) external onlyOwner {
         uint256 poolIndex = _pid - 1;
         // check game status
         require(pools[poolIndex].state == GameState.Running, "no valid time");
-        require(pools[poolIndex].player[0] == _winnerAddress || pools[poolIndex].player[1] == _winnerAddress, "player not found");
-        // update game status
+        if(drawStatus == true) {
+            // set draw status to true
+            pools[poolIndex].drawStatus = true;
+        } else {
+            // check winner in players
+            require(pools[poolIndex].player[0] == _winnerAddress || pools[poolIndex].player[1] == _winnerAddress, "player not found");
+            // set winner
+            pools[poolIndex].winner = _winnerAddress;
+        }
+        // update game state
         pools[poolIndex].state = GameState.Finished;
-        pools[poolIndex].winner = _winnerAddress;
     }
 
     // claim award
@@ -104,17 +113,24 @@ contract PolkaWar is Ownable, ReentrancyGuard {
         // check game status
         require(pools[poolIndex].state == GameState.Finished, "no valid time");
         require(pools[poolIndex].player[0] == msg.sender || pools[poolIndex].player[1] == msg.sender, "player not found");
-        require(pools[poolIndex].winner == msg.sender, "not winner");
-        // send award
-        uint256 award = pools[poolIndex].tokenAmount * 2 * rewardMultiplier / 100;
-        uint256 gasFee = pools[poolIndex].tokenAmount * 2 * (100 - rewardMultiplier) / 100;
-        polkaWarToken.transfer(msg.sender, award);
-        polkaWarToken.transfer(owner(), gasFee);
-        emit LogClaimAward(_pid, msg.sender, award);
+        if(pools[poolIndex].drawStatus == true) {
+            uint256 refund = pools[poolIndex].tokenAmount * rewardMultiplier / 100;
+            polkaWarToken.transfer(msg.sender, refund);
+            emit LogClaimAward(_pid, msg.sender, refund);
+        } else {
+            require(pools[poolIndex].winner == msg.sender, "not winner");
+            // send award
+            uint256 award = pools[poolIndex].tokenAmount * 2 * rewardMultiplier / 100;
+            uint256 gasFee = pools[poolIndex].tokenAmount * 2 * (100 - rewardMultiplier) / 100;
+            polkaWarToken.transfer(msg.sender, award);
+            polkaWarToken.transfer(owner(), gasFee);
+            emit LogClaimAward(_pid, msg.sender, award);
+        }
         // initialize game
         pools[poolIndex].state = GameState.Opening;
         pools[poolIndex].winner = address(0);
         pools[poolIndex].player = new address[](0);
+        pools[poolIndex].drawStatus = false;
     }
 
     // withdraw funds
