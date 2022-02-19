@@ -43,7 +43,7 @@ contract PolkaWar is Ownable, ReentrancyGuard {
     ) external onlyOwner {
         pools.push(
             GamePool({
-                id : pools.length + 1,
+                id : pools.length,
                 state : GameState.Opening,
                 tokenAmount : _tokenAmount,
                 players : new address[](0),
@@ -58,44 +58,40 @@ contract PolkaWar is Ownable, ReentrancyGuard {
         uint256 _pid,
         uint256 _tokenAmount
     ) external onlyOwner {
-        uint256 poolIndex = _pid - 1;
         if(_tokenAmount > 0) {
-            pools[poolIndex].tokenAmount = _tokenAmount;
+            pools[_pid].tokenAmount = _tokenAmount;
         }
     }
 
     // bet game
     function bet(uint256 _pid) external {
-        uint256 poolIndex = _pid - 1;
         // check balance
-        require(polkaWarToken.balanceOf(msg.sender) >= pools[poolIndex].tokenAmount, "insufficient funds");
+        require(polkaWarToken.balanceOf(msg.sender) >= pools[_pid].tokenAmount, "insufficient funds");
         // check game status
-        require(pools[poolIndex].state != GameState.Running, "game is running");
+        require(pools[_pid].state != GameState.Running, "game is running");
         // add user
-        if(pools[poolIndex].state == GameState.Opening) {
-            pools[poolIndex].players.push(msg.sender);
-            pools[poolIndex].state = GameState.Waiting;
-        } else if(pools[poolIndex].state == GameState.Waiting) {
-            pools[poolIndex].players.push(msg.sender);
-            pools[poolIndex].state = GameState.Running;
+        if(pools[_pid].state == GameState.Opening) {
+            pools[_pid].players.push(msg.sender);
+            pools[_pid].state = GameState.Waiting;
+        } else if(pools[_pid].state == GameState.Waiting) {
+            pools[_pid].players.push(msg.sender);
+            pools[_pid].state = GameState.Running;
         }
         // deposit token
-        polkaWarToken.transferFrom(msg.sender, address(this), pools[poolIndex].tokenAmount);
-        emit Transfer(msg.sender, address(this), pools[poolIndex].tokenAmount);
+        polkaWarToken.transferFrom(msg.sender, address(this), pools[_pid].tokenAmount);
+        emit Transfer(msg.sender, address(this), pools[_pid].tokenAmount);
     }
 
     // get game players
     function getGamePlayers(uint256 _pid) public view returns (address[] memory) {
-        uint256 poolIndex = _pid - 1;
-        GamePool storage pool = pools[poolIndex];
+        GamePool storage pool = pools[_pid];
         address[] memory players = pool.players;
         return players;        
     }
 
     // update game status
     function updateGameStatus(uint256 _pid, address _winnerAddress, bool drawStatus) external onlyOwner {
-        uint256 poolIndex = _pid - 1;
-        GamePool storage pool = pools[poolIndex];
+        GamePool storage pool = pools[_pid];
         // check game status
         require(pool.state == GameState.Running, "no valid time");
         if(drawStatus == true) {
@@ -105,7 +101,6 @@ contract PolkaWar is Ownable, ReentrancyGuard {
             // check winner in players
             address[] memory players = pool.players;
             require(players[0] == _winnerAddress || players[1] == _winnerAddress, "player not found");
-            // require(getGamePlayers(poolIndex)[0] == _winnerAddress || getGamePlayers(poolIndex)[1] == _winnerAddress, "player not found");
             // set winner
             pool.winner = _winnerAddress;
         }
@@ -115,8 +110,7 @@ contract PolkaWar is Ownable, ReentrancyGuard {
 
     // draw
     function draw(uint256 _pid) external onlyOwner {
-        uint256 poolIndex = _pid - 1;
-        GamePool storage pool = pools[poolIndex];
+        GamePool storage pool = pools[_pid];
         require(pool.state == GameState.Finished, "no valid time");
         uint256 refund = pool.tokenAmount * rewardMultiplier / 100;
         address[] memory players = pool.players;
@@ -133,8 +127,7 @@ contract PolkaWar is Ownable, ReentrancyGuard {
 
     // claim award
     function claimAward(uint256 _pid) external nonReentrant {
-        uint256 poolIndex = _pid - 1;
-        GamePool storage pool = pools[poolIndex];
+        GamePool storage pool = pools[_pid];
         // check game status
         require(pool.state == GameState.Finished, "no valid time");
         address[] memory players = pool.players;
