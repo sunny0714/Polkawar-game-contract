@@ -1,4 +1,4 @@
-# Hardhat Polka War Game Contract
+# Hardhat Polka War Game Contract(version 2)
 
 This project is intended to be used with the
 [Hardhat Beginners Tutorial](https://hardhat.org/tutorial)

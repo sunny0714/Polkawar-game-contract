@@ -59,7 +59,6 @@ describe("PolkaWar contract", function () {
       // objects have a lot of utility methods to assert values.
 
       const ownerBalance = await PolkaWarTokenContract.balanceOf(owner.address);
-      console.log('ba-->', ownerBalance);
       expect(await PolkaWarTokenContract.totalSupply()).to.equal(ownerBalance);
     });
 
@@ -137,8 +136,18 @@ describe("PolkaWar contract", function () {
       console.log('Game Players after 2 bet-->', await PolkaWarGameContract.getGamePlayers(1));
       expect(poolOneInfo.state).to.equal(2);
 
-      // check claim rewards
-      await PolkaWarGameContract.connect(owner).claimAward(1, addr1.address);
+      // update game status
+      await PolkaWarGameContract.connect(owner).updateGameStatus(1, addr1.address);
+      // Check game status after updating game
+      poolOneInfo = await PolkaWarGameContract.pools(0);
+      console.log('pooloneinfo after updating game-->', poolOneInfo);
+
+      // check claim award
+      await PolkaWarGameContract.connect(addr1).claimAward(1);
+      // Check game status after updating game
+      poolOneInfo = await PolkaWarGameContract.pools(0);
+      console.log('pooloneinfo after claiming-->', poolOneInfo);
+
       console.log('1------> %d PWAR', await PolkaWarTokenContract.balanceOf(addr1.address));
       console.log('2------> %d PWAR', await PolkaWarTokenContract.balanceOf(addr2.address));
       console.log('owner--> %d PWAR', await PolkaWarTokenContract.balanceOf(owner.address));
