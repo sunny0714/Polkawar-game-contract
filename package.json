@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "npx hardhat compile",
+    "deploy": "npx hardhat run scripts/deploy.js --network bscTestnet",
+    "verify": "npx hardhat verify --network bscTestnet 0x6dF27BFdCdd9A7C10B3eFB50EC186DE702b7eD9F 0x16153214e683018d5aa318864c8e692b66e16778",
+    "test": "npx hardhat test"
   },
   "keywords": [],
   "author": "",
