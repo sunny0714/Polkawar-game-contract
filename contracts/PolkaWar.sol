@@ -139,20 +139,13 @@ contract PolkaWar is Ownable, ReentrancyGuard {
         require(pool.state == GameState.Finished, "no valid time");
         address[] memory players = pool.players;
         require(players[0] == msg.sender || players[1] == msg.sender, "player not found");
-        // if(pools[poolIndex].drawStatus == true) {
-        //     uint256 refund = pools[poolIndex].tokenAmount * rewardMultiplier / 100;
-        //     polkaWarToken.transfer(msg.sender, refund);
-        //     emit LogClaimAward(_pid, msg.sender, refund);
-        // } else 
-        {
-            require(pool.winner == msg.sender, "not winner");
-            // send award
-            uint256 award = pool.tokenAmount * 2 * rewardMultiplier / 100;
-            uint256 gasFee = pool.tokenAmount * 2 * (100 - rewardMultiplier) / 100;
-            polkaWarToken.transfer(msg.sender, award);
-            polkaWarToken.transfer(owner(), gasFee);
-            emit LogClaimAward(_pid, msg.sender, award);
-        }
+        require(pool.winner == msg.sender, "not winner");
+        // send award
+        uint256 award = pool.tokenAmount * 2 * rewardMultiplier / 100;
+        uint256 gasFee = pool.tokenAmount * 2 * (100 - rewardMultiplier) / 100;
+        polkaWarToken.transfer(msg.sender, award);
+        polkaWarToken.transfer(owner(), gasFee);
+        emit LogClaimAward(_pid, msg.sender, award);
         // initialize game
         pool.state = GameState.Opening;
         pool.winner = address(0);
