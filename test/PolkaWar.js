@@ -85,7 +85,7 @@ describe("PolkaWar contract", function () {
     });
 
     it("Should assign updated tokenAmount to the selected pool", async function () {
-      await PolkaWarGameContract.connect(owner).updatePool(1, 150);
+      await PolkaWarGameContract.connect(owner).updatePool(0, 150);
       poolOneInfo = await PolkaWarGameContract.pools(0);
       expect(poolOneInfo.tokenAmount).to.equal(150);
     });
@@ -109,48 +109,170 @@ describe("PolkaWar contract", function () {
     });
 
     it("Should change the state of the game pool whenever accounts bet", async function () {
-      // transfer to addr1
+      // transfer to addr1 and set allownace to addr1
       await PolkaWarTokenContract.transfer(addr1.address, 500);
-      // set allownace to addr1
       await PolkaWarTokenContract.connect(addr1).approve(PolkaWarGameContract.address, allowanceAmount);
-      console.log('pooloneinfo before bet-->', poolOneInfo);
-      console.log('Game Players before bet-->', await PolkaWarGameContract.getGamePlayers(1));
       // check bet for the first account
-      await PolkaWarGameContract.connect(addr1).bet(1);
+      await PolkaWarGameContract.connect(addr1).bet(0);
       // Check game status after first account bet
       poolOneInfo = await PolkaWarGameContract.pools(0);
-      console.log('pooloneinfo after 1 bet-->', poolOneInfo)
-      console.log('Game Players after 1 bet-->', await PolkaWarGameContract.getGamePlayers(1));
       expect(poolOneInfo.state).to.equal(1);
+      let currentPlayers = await PolkaWarGameContract.getGamePlayers(0);
+      expect(currentPlayers[0]).to.equal(addr1.address);
 
-      // transfer to addr2
+      // transfer to addr2 and set allowance to addr2
       await PolkaWarTokenContract.transfer(addr2.address, 500);
-      // set allowance to addr2
       await PolkaWarTokenContract.connect(addr2).approve(PolkaWarGameContract.address, allowanceAmount);
       // check bet for the second account
-      await PolkaWarGameContract.connect(addr2).bet(1);
+      await PolkaWarGameContract.connect(addr2).bet(0);
       // Check game status after second account bet
       poolOneInfo = await PolkaWarGameContract.pools(0);
-      console.log('pooloneinfo after 2 bet-->', poolOneInfo)
-      console.log('pooloneinfo player after 2 bet-->', poolOneInfo.player)
-      console.log('Game Players after 2 bet-->', await PolkaWarGameContract.getGamePlayers(1));
       expect(poolOneInfo.state).to.equal(2);
+      currentPlayers = await PolkaWarGameContract.getGamePlayers(0);
+      expect(currentPlayers[1]).to.equal(addr2.address);
+    });
 
-      // update game status
-      await PolkaWarGameContract.connect(owner).updateGameStatus(1, addr1.address);
+    it("Should distribute token correctly after claimAward in case of win", async function () {
+      // transfer to addr1 and set allownace to addr1
+      await PolkaWarTokenContract.transfer(addr1.address, 500);
+      await PolkaWarTokenContract.connect(addr1).approve(PolkaWarGameContract.address, allowanceAmount);
+      // check bet for the first account
+      await PolkaWarGameContract.connect(addr1).bet(0);
+
+      // transfer to addr2 and set allowance to addr2
+      await PolkaWarTokenContract.transfer(addr2.address, 500);
+      await PolkaWarTokenContract.connect(addr2).approve(PolkaWarGameContract.address, allowanceAmount);
+      // check bet for the second account
+      await PolkaWarGameContract.connect(addr2).bet(0);
+
+      // update game status when defined winner
+      await PolkaWarGameContract.connect(owner).updateGameStatus(0, addr1.address, false);
       // Check game status after updating game
       poolOneInfo = await PolkaWarGameContract.pools(0);
-      console.log('pooloneinfo after updating game-->', poolOneInfo);
+      expect(poolOneInfo.winner).to.equal(addr1.address);
+      expect(poolOneInfo.drawStatus).to.equal(false);
 
       // check claim award
-      await PolkaWarGameContract.connect(addr1).claimAward(1);
+      await PolkaWarGameContract.connect(addr1).claimAward(0);
+      // Check game status and user balance after updating game
+      poolOneInfo = await PolkaWarGameContract.pools(0);
+      expect(poolOneInfo.winner).to.equal('0x0000000000000000000000000000000000000000');
+      expect(await PolkaWarTokenContract.balanceOf(addr1.address)).to.equal(540);
+      expect(await PolkaWarTokenContract.balanceOf(addr2.address)).to.equal(450);
+      expect(await PolkaWarTokenContract.balanceOf(owner.address)).to.equal(99010);
+    });
+
+    it("Should distribute token correctly after draw in case of draw", async function () {
+      // transfer to addr1 and set allownace to addr1
+      await PolkaWarTokenContract.transfer(addr1.address, 500);
+      await PolkaWarTokenContract.connect(addr1).approve(PolkaWarGameContract.address, allowanceAmount);
+      // check bet for the first account
+      await PolkaWarGameContract.connect(addr1).bet(0);
+
+      // transfer to addr2 and set allowance to addr2
+      await PolkaWarTokenContract.transfer(addr2.address, 500);
+      await PolkaWarTokenContract.connect(addr2).approve(PolkaWarGameContract.address, allowanceAmount);
+      // check bet for the second account
+      await PolkaWarGameContract.connect(addr2).bet(0);
+
+      // update game status when draw
+      await PolkaWarGameContract.connect(owner).updateGameStatus(0, addr1.address, true);
       // Check game status after updating game
       poolOneInfo = await PolkaWarGameContract.pools(0);
-      console.log('pooloneinfo after claiming-->', poolOneInfo);
+      expect(poolOneInfo.drawStatus).to.equal(true);
 
-      console.log('1------> %d PWAR', await PolkaWarTokenContract.balanceOf(addr1.address));
-      console.log('2------> %d PWAR', await PolkaWarTokenContract.balanceOf(addr2.address));
-      console.log('owner--> %d PWAR', await PolkaWarTokenContract.balanceOf(owner.address));
+      // check draw
+      await PolkaWarGameContract.connect(owner).draw(0);
+      // Check game status and user balance after updating game
+      poolOneInfo = await PolkaWarGameContract.pools(0);
+      expect(poolOneInfo.winner).to.equal('0x0000000000000000000000000000000000000000');
+      expect(await PolkaWarTokenContract.balanceOf(addr1.address)).to.equal(495);
+      expect(await PolkaWarTokenContract.balanceOf(addr2.address)).to.equal(495);
+      expect(await PolkaWarTokenContract.balanceOf(owner.address)).to.equal(99010);
+    });
+
+    it("Should work correctly when repeating bet", async function () {
+
+      // bet (in case of draw)
+
+      // transfer to addr1 and set allownace to addr1
+      await PolkaWarTokenContract.transfer(addr1.address, 500);
+      await PolkaWarTokenContract.connect(addr1).approve(PolkaWarGameContract.address, allowanceAmount);
+      // check bet for the first account
+      await PolkaWarGameContract.connect(addr1).bet(0);
+
+      // transfer to addr2 and set allowance to addr2
+      await PolkaWarTokenContract.transfer(addr2.address, 500);
+      await PolkaWarTokenContract.connect(addr2).approve(PolkaWarGameContract.address, allowanceAmount);
+      // check bet for the second account
+      await PolkaWarGameContract.connect(addr2).bet(0);
+
+      // update game status when draw and do draw
+      await PolkaWarGameContract.connect(owner).updateGameStatus(0, addr1.address, true);
+      await PolkaWarGameContract.connect(owner).draw(0);
+
+      // Repeat bet (in case of draw)
+
+      await PolkaWarGameContract.connect(addr1).bet(0);
+      await PolkaWarGameContract.connect(addr2).bet(0);
+
+      // update game status when draw
+      await PolkaWarGameContract.connect(owner).updateGameStatus(0, addr1.address, true);
+      // Check game status after updating game
+      poolOneInfo = await PolkaWarGameContract.pools(0);
+      expect(poolOneInfo.drawStatus).to.equal(true);
+
+      // check draw
+      await PolkaWarGameContract.connect(owner).draw(0);
+      // Check game status and user balance after updating game
+      poolOneInfo = await PolkaWarGameContract.pools(0);
+      expect(poolOneInfo.winner).to.equal('0x0000000000000000000000000000000000000000');
+      expect(await PolkaWarTokenContract.balanceOf(addr1.address)).to.equal(490);
+      expect(await PolkaWarTokenContract.balanceOf(addr2.address)).to.equal(490);
+      expect(await PolkaWarTokenContract.balanceOf(owner.address)).to.equal(99020);
+
+      // Repeat bet (in case of win)
+
+      await PolkaWarGameContract.connect(addr1).bet(0);
+      await PolkaWarGameContract.connect(addr2).bet(0);
+
+      // update game status when defined winner
+      await PolkaWarGameContract.connect(owner).updateGameStatus(0, addr1.address, false);
+      // Check game status after updating game
+      poolOneInfo = await PolkaWarGameContract.pools(0);
+      expect(poolOneInfo.winner).to.equal(addr1.address);
+      expect(poolOneInfo.drawStatus).to.equal(false);
+
+      // check claim award
+      await PolkaWarGameContract.connect(addr1).claimAward(0);
+      // Check game status and user balance after updating game
+      poolOneInfo = await PolkaWarGameContract.pools(0);
+      expect(poolOneInfo.winner).to.equal('0x0000000000000000000000000000000000000000');
+      expect(await PolkaWarTokenContract.balanceOf(addr1.address)).to.equal(530);
+      expect(await PolkaWarTokenContract.balanceOf(addr2.address)).to.equal(440);
+      expect(await PolkaWarTokenContract.balanceOf(owner.address)).to.equal(99030);
+
+      // Repeat bet (in case of win)
+
+      await PolkaWarGameContract.connect(addr1).bet(0);
+      await PolkaWarGameContract.connect(addr2).bet(0);
+
+      // update game status when defined winner
+      await PolkaWarGameContract.connect(owner).updateGameStatus(0, addr1.address, false);
+      // Check game status after updating game
+      poolOneInfo = await PolkaWarGameContract.pools(0);
+      expect(poolOneInfo.winner).to.equal(addr1.address);
+      expect(poolOneInfo.drawStatus).to.equal(false);
+
+      // check claim award
+      await PolkaWarGameContract.connect(addr1).claimAward(0);
+      // Check game status and user balance after updating game
+      poolOneInfo = await PolkaWarGameContract.pools(0);
+      expect(poolOneInfo.winner).to.equal('0x0000000000000000000000000000000000000000');
+      expect(await PolkaWarTokenContract.balanceOf(addr1.address)).to.equal(570);
+      expect(await PolkaWarTokenContract.balanceOf(addr2.address)).to.equal(390);
+      expect(await PolkaWarTokenContract.balanceOf(owner.address)).to.equal(99040);
+      
     });
   });
 });
